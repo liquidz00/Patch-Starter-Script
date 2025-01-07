@@ -10,7 +10,7 @@ def parse_arguments():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Generate patch definitions from macOS application bundles.",
-        formatter_class=argparse.RawTextHelpFormatter
+        formatter_class=argparse.RawTextHelpFormatter,
     )
 
     parser.add_argument("path", help="Path to the application bundle", type=str)
@@ -18,14 +18,17 @@ def parse_arguments():
     parser.add_argument("-p", "--publisher", help="Publisher name", type=str, default="")
     parser.add_argument("-n", "--name", help="Display name", type=str, default="")
     parser.add_argument(
-        "-e", "--extension-attribute", 
-        help="Path to script(s) for extension attributes", 
-        action="append"
+        "-e",
+        "--extension-attribute",
+        help="Path to script(s) for extension attributes",
+        action="append",
     )
     parser.add_argument("--app-version", help="Override app version", type=str)
     parser.add_argument("--min-sys-version", help="Override minimum macOS version", type=str)
-    parser.add_argument("--patch-only", help="Create only a patch, not a full definition", action="store_true")
-    
+    parser.add_argument(
+        "--patch-only", help="Create only a patch, not a full definition", action="store_true"
+    )
+
     return parser.parse_args()
 
 
@@ -43,14 +46,18 @@ def get_app_info(args):
     plist_path = os.path.join(args.path, "Contents", "Info.plist")
     info = load_plist(plist_path)
 
-    app_name = args.name or info.get("CFBundleName", os.path.basename(args.path).replace(".app", ""))
+    app_name = args.name or info.get(
+        "CFBundleName", os.path.basename(args.path).replace(".app", "")
+    )
     app_id = app_name.replace(" ", "")
     app_bundle_id = info.get("CFBundleIdentifier", "unknown.bundle.id")
     app_version = args.app_version or info.get("CFBundleShortVersionString", "0.0.0")
     app_min_os = args.min_sys_version or info.get("LSMinimumSystemVersion", "10.9")
 
     app_last_modified = datetime.now(timezone.utc).isoformat() + "Z"
-    app_timestamp = datetime.fromtimestamp(os.path.getmtime(args.path), timezone.utc).isoformat() + "Z"
+    app_timestamp = (
+        datetime.fromtimestamp(os.path.getmtime(args.path), timezone.utc).isoformat() + "Z"
+    )
 
     return {
         "app_name": app_name,
@@ -59,7 +66,7 @@ def get_app_info(args):
         "app_version": app_version,
         "app_min_os": app_min_os,
         "app_last_modified": app_last_modified,
-        "app_timestamp": app_timestamp
+        "app_timestamp": app_timestamp,
     }
 
 
@@ -77,15 +84,30 @@ def create_patch(info):
                 "name": info["app_name"],
                 "version": info["app_version"],
                 "criteria": [
-                    {"name": "Application Bundle ID", "operator": "is", "value": info["app_bundle_id"], "type": "recon"},
-                    {"name": "Application Version", "operator": "is", "value": info["app_version"], "type": "recon"}
-                ]
+                    {
+                        "name": "Application Bundle ID",
+                        "operator": "is",
+                        "value": info["app_bundle_id"],
+                        "type": "recon",
+                    },
+                    {
+                        "name": "Application Version",
+                        "operator": "is",
+                        "value": info["app_version"],
+                        "type": "recon",
+                    },
+                ],
             }
         ],
         "capabilities": [
-            {"name": "Operating System Version", "operator": "greater than or equal", "value": info["app_min_os"], "type": "recon"}
+            {
+                "name": "Operating System Version",
+                "operator": "greater than or equal",
+                "value": info["app_min_os"],
+                "type": "recon",
+            }
         ],
-        "dependencies": []
+        "dependencies": [],
     }
 
 
@@ -100,10 +122,15 @@ def create_patch_definition(info, patch, args):
         "lastModified": info["app_last_modified"],
         "currentVersion": info["app_version"],
         "requirements": [
-            {"name": "Application Bundle ID", "operator": "is", "value": info["app_bundle_id"], "type": "recon"}
+            {
+                "name": "Application Bundle ID",
+                "operator": "is",
+                "value": info["app_bundle_id"],
+                "type": "recon",
+            }
         ],
         "patches": [patch],
-        "extensionAttributes": []
+        "extensionAttributes": [],
     }
 
     # Add extension attributes if provided
@@ -112,14 +139,16 @@ def create_patch_definition(info, patch, args):
             try:
                 with open(ext_path, "rb") as f:
                     ext_content = base64.b64encode(f.read()).decode("utf-8")
-                definition["extensionAttributes"].append({
-                    "key": info["app_name"].lower().replace(" ", "-"),
-                    "value": ext_content,
-                    "displayName": info["app_name"]
-                })
+                definition["extensionAttributes"].append(
+                    {
+                        "key": info["app_name"].lower().replace(" ", "-"),
+                        "value": ext_content,
+                        "displayName": info["app_name"],
+                    }
+                )
             except IOError as e:
                 raise SystemExit(f"Error reading extension attribute: {e}")
-    
+
     return definition
 
 
@@ -140,12 +169,12 @@ def main():
     args = parse_arguments()
     app_info = get_app_info(args)
     patch = create_patch(app_info)
-    
+
     if args.patch_only:
         output = patch
     else:
         output = create_patch_definition(app_info, patch, args)
-    
+
     save_output(output, app_info["app_id"], args)
 
 
