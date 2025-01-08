@@ -15,7 +15,7 @@ class TitleManager:
         self.app_path = self.find_application(app_name)
 
     def find_application(self, app_name: str) -> str:
-        search_pattern = os.path.join(self.base_path, self.app_name)
+        search_pattern = os.path.join(self.base_path, f"{self.app_name}.app")
         matches = glob.glob(search_pattern)
 
         if not matches:
